@@ -58,9 +58,9 @@
     <!-- 로그인 섹션 -->
     <div id="login-section" class="w-full max-w-md p-8 bg-white rounded-2xl shadow-lg">
         <div class="flex flex-col items-center">
-            <img src="logo_on.png" alt="삼익THK 로고" class="h-12 mb-6">
+            <img src="logo_on.png" alt="삼익THK 로고" class="h-10 mb-6">
             <h1 class="text-2xl font-bold text-gray-800 mb-2">신입사원 OJT 챗봇</h1>
-            <p class="text-gray-600 mb-8">삼익THK 가족이 되신 것을 환영합니다!<br>궁금한 점을 해결해 드릴게요.</p>
+            <p class="text-gray-600 mb-8 text-center">삼익THK 가족이 되신 것을 환영합니다!<br>궁금한 점을 해결해 드릴게요.</p>
         </div>
         <form id="login-form">
             <div class="mb-4">
@@ -78,7 +78,7 @@
     <div id="chatbot-section" class="w-full max-w-2xl chatbot-container bg-white rounded-2xl shadow-2xl flex flex-col hidden">
         <!-- 헤더 -->
         <div id="chatbot-header" class="p-4 border-b bg-red-600 text-white rounded-t-2xl flex items-center justify-between flex-shrink-0">
-            <div class="flex items-center min-w-0"> <!-- 반응형을 위한 min-w-0 추가 -->
+            <div class="flex items-center min-w-0">
                 <img src="logo_on.png" alt="삼익THK 로고" class="h-8 mr-3 flex-shrink-0" style="filter: brightness(0) invert(1);">
                 <h1 id="header-title" class="text-lg sm:text-xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">무엇이 궁금하세요?</h1>
             </div>
@@ -108,13 +108,16 @@
                 <div id="chat-window" class="flex-1 p-6 overflow-y-auto">
                     <!-- 메시지가 여기에 추가됩니다 -->
                 </div>
-                <div class="p-4 border-t bg-white flex-shrink-0">
-                    <form id="chat-form" class="flex items-center space-x-3">
-                        <input type="text" id="user-input" placeholder="추가 질문을 입력하세요..." class="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-red-500 transition">
-                        <button type="submit" class="bg-red-600 text-white rounded-full p-3 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-transform transform hover:scale-110">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+                <div id="follow-up-actions" class="p-4 border-t bg-white flex-shrink-0">
+                    <p class="text-sm text-center text-gray-500 mb-3">추가로 궁금한 점이 있으신가요?</p>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <button id="more-questions-button" class="w-full bg-slate-200 text-slate-800 font-semibold py-3 px-4 rounded-lg hover:bg-slate-300 transition">
+                            다른 질문 보기
                         </button>
-                    </form>
+                        <button id="go-to-categories-button" class="w-full bg-red-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-red-700 transition">
+                            처음으로
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -134,8 +137,8 @@
         const questionList = document.getElementById('question-list');
         const chatView = document.getElementById('chat-view');
         const chatWindow = document.getElementById('chat-window');
-        const chatForm = document.getElementById('chat-form');
-        const userInput = document.getElementById('user-input');
+        const moreQuestionsButton = document.getElementById('more-questions-button');
+        const goToCategoriesButton = document.getElementById('go-to-categories-button');
 
         const CORRECT_PASSWORD = "samick";
         const GOOGLE_SHEET_ID = "1OLJ7a19WTW5KG41cLGvc6oF3gE1yReiH9ulH2tNpNfI";
@@ -151,19 +154,68 @@
             'default': `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`
         };
 
+        function parseCSV(csvText) {
+            const rows = [];
+            let currentRow = [];
+            let currentField = '';
+            let inQuotedField = false;
+
+            for (let i = 0; i < csvText.length; i++) {
+                const char = csvText[i];
+
+                if (inQuotedField) {
+                    if (char === '"') {
+                        if (i + 1 < csvText.length && csvText[i + 1] === '"') {
+                            currentField += '"';
+                            i++;
+                        } else {
+                            inQuotedField = false;
+                        }
+                    } else {
+                        currentField += char;
+                    }
+                } else {
+                    if (char === '"') {
+                        inQuotedField = true;
+                    } else if (char === ',') {
+                        currentRow.push(currentField);
+                        currentField = '';
+                    } else if (char === '\n' || char === '\r') {
+                        if (i > 0 && csvText[i - 1] !== '\n' && csvText[i - 1] !== '\r') {
+                           currentRow.push(currentField);
+                           rows.push(currentRow);
+                           currentRow = [];
+                           currentField = '';
+                        }
+                         if (char === '\r' && i + 1 < csvText.length && csvText[i+1] === '\n') {
+                            i++;
+                        }
+                    } else {
+                        currentField += char;
+                    }
+                }
+            }
+            if (currentField || currentRow.length > 0) {
+                 currentRow.push(currentField);
+                 rows.push(currentRow);
+            }
+            return rows;
+        }
+
         async function loadSheetData() {
             try {
                 const response = await fetch(SHEET_URL);
                 const csvText = await response.text();
-                const rows = csvText.split('\n').slice(1);
-                qaData = rows.map(row => {
-                    const columns = row.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
-                    const cleanedColumns = columns.map(col => col.trim().replace(/^"|"$/g, ''));
-                    if (cleanedColumns.length >= 4) {
-                        return { category: cleanedColumns[0], question: cleanedColumns[1], answer: cleanedColumns[2], keywords: cleanedColumns[3] };
+                const parsedRows = parseCSV(csvText);
+                
+                qaData = parsedRows.slice(1)
+                .map(columns => {
+                    if (columns.length >= 4) {
+                        return { category: columns[0], question: columns[1], answer: columns[2], keywords: columns[3] };
                     }
                     return null;
-                }).filter(item => item && item.question);
+                }).filter(item => item && item.question && item.category);
+
                 displayCategories();
             } catch (error) {
                 console.error("시트 데이터를 불러오는 중 오류 발생:", error);
@@ -197,6 +249,7 @@
             const categories = [...new Set(qaData.map(item => item.category))];
             categoryList.innerHTML = '';
             categories.forEach(category => {
+                if (!category) return;
                 const button = document.createElement('button');
                 const icon = categoryIcons[category] || categoryIcons['default'];
                 button.innerHTML = `
@@ -247,27 +300,6 @@
             chatWindow.appendChild(messageElement);
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
-        
-        function findAnswer(input) {
-            const lowercasedInput = input.toLowerCase().trim();
-            if (!lowercasedInput) return null;
-            let exactMatch = qaData.find(item => item.question.toLowerCase() === lowercasedInput);
-            if (exactMatch) return exactMatch.answer;
-
-            let bestMatch = { score: 0, answer: null };
-            qaData.forEach(item => {
-                let currentScore = 0;
-                const keywords = item.keywords.toLowerCase().split(',').map(k => k.trim());
-                keywords.forEach(keyword => {
-                    if (lowercasedInput.includes(keyword)) currentScore++;
-                });
-                if (currentScore > bestMatch.score) {
-                    bestMatch = { score: currentScore, answer: item.answer };
-                }
-            });
-            if (bestMatch.score > 0) return bestMatch.answer;
-            return "죄송합니다. 질문을 이해하지 못했습니다. '뒤로' 버튼을 눌러 카테고리에서 질문을 다시 선택해주세요.";
-        }
 
         loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -285,17 +317,14 @@
             }
         });
 
-        chatForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const userMessage = userInput.value.trim();
-            if (!userMessage) return;
-            appendMessage(userMessage, 'user');
-            userInput.value = '';
-            setTimeout(() => {
-                const botResponse = findAnswer(userMessage);
-                appendMessage(botResponse, 'bot');
-            }, 500);
+        moreQuestionsButton.addEventListener('click', () => {
+            displayQuestions(currentCategory);
         });
+
+        goToCategoriesButton.addEventListener('click', () => {
+            switchView('category');
+        });
+
     </script>
 </body>
 </html>
